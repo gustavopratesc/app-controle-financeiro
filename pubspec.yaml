@@ -40,6 +40,7 @@ dependencies:
   path: ^1.9.1
   sqflite_common_ffi_web: ^1.1.2
   supabase_flutter: ^2.12.4
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

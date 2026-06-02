@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers.dart';
 import '../viewmodels/transacao_viewmodel.dart';
 import 'adicionar_transacao_view.dart';
+import '../core/cotacao_provider.dart';
 
 class DashboardView extends ConsumerWidget {
   const DashboardView({super.key});
@@ -12,7 +13,9 @@ class DashboardView extends ConsumerWidget {
     // Escutando a inteligência financeira que construímos
     final saldo = ref.watch(saldoProvider);
     final transacoesState = ref.watch(transacaoViewModelProvider);
-
+    // Lê o estado da nossa API
+    final cotacaoAsync = ref.watch(cotacaoDolarProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Meu Controle Financeiro'),
@@ -24,12 +27,10 @@ class DashboardView extends ConsumerWidget {
             icon: const Icon(Icons.cloud_upload),
             tooltip: 'Sincronizar com a Nuvem',
             onPressed: () async {
-              // Exibe um feedback visual rápido
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Sincronizando dados...')),
               );
 
-              // Chama o serviço que acabamos de criar
               final syncService = ref.read(sincronizacaoServiceProvider);
               await syncService.sincronizarTransacoesPendentes();
 
@@ -56,7 +57,7 @@ class DashboardView extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // --- HEADER COM O SALDO DINÂMICO ---
+          // --- HEADER COM O SALDO DINÂMICO E A COTAÇÃO DA API ---
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(32),
@@ -76,6 +77,39 @@ class DashboardView extends ConsumerWidget {
                   'R\$ ${saldo.toStringAsFixed(2).replaceAll('.', ',')}',
                   style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(height: 16),
+                
+                // --- WIDGET DA API DE COTAÇÃO REPOSICIONADO ---
+                cotacaoAsync.when(
+                  // 1. ESTADO DE SUCESSO: Mostra a cotação real da API
+                  data: (cotacao) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      cotacao,
+                      style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  
+                  // 2. ESTADO DE ERRO: Caso falte internet
+                  error: (err, stack) => const Text(
+                    'Cotação indisponível (Offline)',
+                    style: TextStyle(fontSize: 14, color: Colors.white70),
+                  ),
+                  
+                  // 3. ESTADO DE CARREGAMENTO (SKELETON SCREEN)
+                  loading: () => Container(
+                    width: 150,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3), // Efeito de esqueleto translúcido
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -83,13 +117,8 @@ class DashboardView extends ConsumerWidget {
           // --- LISTA DE TRANSAÇÕES REATIVA ---
           Expanded(
             child: transacoesState.when(
-              // Estado 1: Buscando no SQLite
               loading: () => const Center(child: CircularProgressIndicator()),
-              
-              // Estado 2: Falha no banco
               error: (erro, stack) => Center(child: Text('Erro ao carregar dados: $erro')),
-              
-              // Estado 3: Sucesso (Temos dados ou lista vazia)
               data: (transacoes) {
                 if (transacoes.isEmpty) {
                   return const Center(
@@ -120,7 +149,6 @@ class DashboardView extends ConsumerWidget {
                           ),
                         ),
                         title: Text(t.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        // Exibe apenas a data sem a hora
                         subtitle: Text(t.data.toIso8601String().split('T')[0]),
                         trailing: Text(
                           'R\$ ${t.valor.toStringAsFixed(2).replaceAll('.', ',')}',
@@ -130,7 +158,6 @@ class DashboardView extends ConsumerWidget {
                             fontSize: 16,
                           ),
                         ),
-                        // Regra de exclusão ao segurar o item
                         onLongPress: () {
                           ref.read(transacaoViewModelProvider.notifier).remover(t.id);
                         },
@@ -145,15 +172,13 @@ class DashboardView extends ConsumerWidget {
       ),
       
       // --- BOTÃO FLUTUANTE PARA NOVA TRANSAÇÃO ---
-      // --- BOTÃO FLUTUANTE PARA NOVA TRANSAÇÃO ---
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
         onPressed: () {
-          // Exibe o formulário que acabamos de criar deslizando de baixo
           showModalBottomSheet(
             context: context,
-            isScrollControlled: true, // Permite que a aba cresça se o teclado abrir
+            isScrollControlled: true,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
