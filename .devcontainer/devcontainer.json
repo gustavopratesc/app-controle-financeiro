@@ -1,0 +1,14 @@
+{
+  "name": "Controle Financeiro - Flutter",
+  "image": "ghcr.io/cirruslabs/flutter:stable",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dart-code.flutter",
+        "dart-code.dart-code"
+      ]
+    }
+  },
+  "forwardPorts": [8080],
+  "postCreateCommand": "flutter config --enable-web && flutter create . && flutter pub get"
+}
